@@ -1,0 +1,168 @@
+esphome:
+  name: master-bedroom-projector
+  includes:
+    - uart_read_line_sensor.h
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable UART. Please select the pins you're using on your board.
+uart:
+  id: projector
+  tx_pin: GPIO19
+  rx_pin: GPIO18
+  baud_rate: 9600
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: !secret wifi_captive_ssid
+    password: !secret wifi_captive_password
+
+captive_portal:
+
+# This is our hub - it manages our connection to the projector.
+text_sensor:
+  - platform: custom
+    lambda: |-
+      auto my_custom_sensor = new UartReadLineSensor(id(projector));
+      App.register_component(my_custom_sensor);
+      return {my_custom_sensor};
+    text_sensors:
+      id: "uart_readline"
+      on_value:
+        then:
+          - lambda: |-
+             // Clean up the end of the string    
+             std::string str = x;
+             str = str.erase(str.size()-1, 1);
+
+             // Parse commands and values
+             std::string command = str.substr(1, str.find("=")-1); 
+             std::string param = str.substr(str.find("=")+1, str.size());
+             
+             if ((param == "?") || (param == "+") || (param == "-")){
+               return;
+             }
+
+             if (command == "VOL") {
+               auto call = id(projector_volume).make_call();
+               call.set_value(atoi(param.c_str()));
+               call.perform();
+             } else if (command == "LTIM") {
+               id(projector_ltim).publish_state(atoi(param.c_str()));
+             } else if (command == "POW") {
+               id(projector_power).publish_state(param == "ON");
+             } else if (command == "SOUR") {
+               auto call = id(projector_source).make_call();
+               call.set_option(param.c_str());
+               call.perform();
+             }
+
+select:
+  - platform: template
+    name: Projector Source
+    id: projector_source
+    # Change this to the inputs your projector has
+    options:
+      - HDMI
+      - USBREADER
+      - HDMI2
+    set_action:
+      then:
+        - lambda: |-
+            if ((x) != id(projector_source).state) {
+              std::string c = "\r*SOUR=" + x + "#\r";
+              id(projector).write_array((const uint8_t*)c.c_str(), c.size());
+              id(projector_source).state = x;
+            }
+    
+    
+number:
+  - platform: template
+    id: projector_volume
+    step: 1
+    min_value: 0
+    max_value: 50
+    name: "Projector Volume"
+      
+    set_action:
+      then:
+        - lambda: |-
+            int target = round(x);
+            int current = id(projector_volume).state;
+            int delta = target - current;
+
+            for (int i=0; i<abs(delta);i++) {
+              std::string c = "";
+              if (delta < 0) {
+                  
+                  c = "\r*vol=-#\r";
+              }
+              else if (delta > 0){
+                  c = "\r*vol=+#\r";
+              }
+              else {
+                // nothing
+              }
+              
+              if (c != "") {
+                id(projector).write_array((const uint8_t*)c.c_str(), c.size());
+              }
+            }
+            
+            id(projector_volume).state = target;
+
+    
+      
+sensor:
+
+  - platform: template
+    name: "Projector Lamp Hours"
+    id: projector_ltim
+
+
+switch:
+  - platform: template
+    name: "Projector Power Status"
+    id: projector_power
+
+    turn_on_action:
+      - uart.write: "\r*pow=on#\r"
+    turn_off_action:
+      - uart.write: "\r*pow=off#\r"
+  
+interval:
+  - interval: 10s # not pretty, but works
+    then:
+      - uart.write: "\r*pow=?#\r"
+      - delay: 1s
+      - if:
+          condition:
+            lambda: 'return id(projector_power).state;'
+          then:
+            - uart.write: "\r*sour=?#\r"
+            - delay: 1s
+            - uart.write: "\r*vol=?#\r"
+            - delay: 1s
+            - uart.write: "\r*ltim=?#\r"
+
+          else:
+            - logger.log: "Projector is OFF"
+
+
+      

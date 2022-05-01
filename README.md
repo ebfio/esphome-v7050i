@@ -16,3 +16,7 @@ ESPHome project to control [v7050i](https://www.benq.com/en-us/projector/laser-t
 ## Screenshots
 
 Coming soon!
+
+## Credits
+
+Based on the ESPhome custom text component example. 

@@ -60,13 +60,13 @@ text_sensor:
              }
 
              if (command == "VOL") {
-               id(projector_volume).state = atoi(param.c_str());
+               id(projector_volume).publish_state(atoi(param.c_str()));
              } else if (command == "LTIM") {
                id(projector_ltim).publish_state(atoi(param.c_str()));
              } else if (command == "POW") {
                id(projector_power).publish_state(param == "ON");
              } else if (command == "SOUR") {
-               id(projector_source).state = param.c_str();
+               id(projector_source).publish_state(param.c_str());
              }
 
 select:
@@ -84,7 +84,7 @@ select:
             if ((x) != id(projector_source).state) {
               std::string c = "\r*SOUR=" + x + "#\r";
               id(projector).write_array((const uint8_t*)c.c_str(), c.size());
-              id(projector_source).state = x;
+              id(projector_source).publish_state(x);
             }
     
     
@@ -121,7 +121,7 @@ number:
               }
             }
             
-            id(projector_volume).state = target;
+            id(projector_volume).publish_state(target);
 
     
       

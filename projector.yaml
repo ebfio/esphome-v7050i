@@ -77,7 +77,7 @@ select:
     options:
       - HDMI1
       - HDMI2
-      - USBREADER	
+      - USBREADER
     set_action:
       then:
         - lambda: |-

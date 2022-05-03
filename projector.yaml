@@ -60,17 +60,13 @@ text_sensor:
              }
 
              if (command == "VOL") {
-               auto call = id(projector_volume).make_call();
-               call.set_value(atoi(param.c_str()));
-               call.perform();
+               id(projector_volume).state = atoi(param.c_str());
              } else if (command == "LTIM") {
                id(projector_ltim).publish_state(atoi(param.c_str()));
              } else if (command == "POW") {
                id(projector_power).publish_state(param == "ON");
              } else if (command == "SOUR") {
-               auto call = id(projector_source).make_call();
-               call.set_option(param.c_str());
-               call.perform();
+               id(projector_source).state = param.c_str();
              }
 
 select:
@@ -79,9 +75,9 @@ select:
     id: projector_source
     # Change this to the inputs your projector has
     options:
-      - HDMI
-      - USBREADER
+      - HDMI1
       - HDMI2
+      - USBREADER	
     set_action:
       then:
         - lambda: |-
